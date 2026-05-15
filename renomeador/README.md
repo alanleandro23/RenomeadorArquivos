@@ -1,26 +1,27 @@
 # Gerenciador DANFE
 
-Software desktop desenvolvido em React + Electron para:
+Software desktop desenvolvido em **React + Electron** para:
 
 - Renomear DANFEs automaticamente
 - Ler chave de acesso via OCR
-- Dividir PDFs
-- Gerar arquivos organizados automaticamente
-- Exportar ZIPs com PDFs renomeados
+- Ler número da NF automaticamente
+- Dividir PDFs página por página
+- Gerar ZIP com arquivos organizados
+- Processar PDFs digitais e escaneados
 
 ---
 
-# Funcionalidades
+# Preview das Funcionalidades
 
-## Renomear DANFEs
+## ✅ Renomear DANFEs
 
-O sistema identifica automaticamente:
+O sistema lê automaticamente:
 
 - Chave de acesso da NF-e
-- Número da NF
-- Dados via OCR (inclusive PDFs escaneados)
+- Número da nota fiscal
+- PDFs escaneados via OCR
 
-Formato final:
+### Resultado automático
 
 ```text
 32260421982891000280550010000040471078000551-NFE.pdf
@@ -28,10 +29,25 @@ Formato final:
 
 ---
 
-## Dividir PDFs
+## ✅ Apenas NFE
 
-- Divide PDFs página por página
-- Faz OCR individual em cada página
+Renomeia apenas utilizando o número da nota fiscal.
+
+### Resultado automático
+
+```text
+NFE4047.pdf
+```
+
+---
+
+## ✅ Dividir PDFs
+
+O sistema:
+
+- Divide PDFs automaticamente
+- Separa cada página individualmente
+- Faz OCR em cada página
 - Renomeia automaticamente
 - Gera ZIP final
 
@@ -39,20 +55,68 @@ Formato final:
 
 # Tecnologias Utilizadas
 
-- React
-- Vite
-- Electron
-- Tesseract OCR
-- PDF.js
-- PDF-LIB
-- JSZip
-- TailwindCSS
+| Tecnologia | Função |
+|---|---|
+| React | Interface |
+| Vite | Build rápido |
+| Electron | Aplicação desktop |
+| Tesseract.js | OCR |
+| PDF.js | Leitura de PDF |
+| PDF-LIB | Divisão de PDFs |
+| JSZip | Geração ZIP |
+| TailwindCSS | Estilização |
 
 ---
 
-# Instalação do Projeto
+# Requisitos
 
-## Instalar dependências
+Antes de começar, instale:
+
+- Node.js 20+
+- NPM
+- Git (opcional)
+
+---
+
+# Instalação do Node.js
+
+Baixe:
+
+```text
+https://nodejs.org
+```
+
+Instale a versão:
+
+```text
+LTS
+```
+
+---
+
+# Clonar Projeto
+
+```bash
+git clone URL_DO_REPOSITORIO
+```
+
+ou extraia o `.zip`.
+
+---
+
+# Abrir Projeto
+
+Abra a pasta no:
+
+```text
+VSCode
+```
+
+---
+
+# Instalar Dependências
+
+Abra o terminal dentro do projeto:
 
 ```bash
 npm install
@@ -60,32 +124,23 @@ npm install
 
 ---
 
-# Executar em desenvolvimento
+# Dependências OCR e PDF
+
+Caso necessário:
 
 ```bash
-npm run dev
+npm install tesseract.js
+npm install pdfjs-dist
+npm install pdf-lib
+npm install jszip
 ```
 
 ---
 
-# Executar Electron
+# Dependências Electron
 
 ```bash
-npm run electron
-```
-
----
-
-# Gerar EXE
-
-```bash
-npm run dist
-```
-
-O instalador será criado em:
-
-```text
-release/
+npm install electron electron-builder --save-dev
 ```
 
 ---
@@ -93,18 +148,33 @@ release/
 # Estrutura do Projeto
 
 ```text
-src/
-public/
-electron.js
-package.json
-vite.config.js
+gerenciador-danfe/
+│
+├── public/
+├── src/
+│   ├── App.jsx
+│   ├── main.jsx
+│
+├── electron.js
+├── vite.config.js
+├── package.json
+├── tailwind.config.js
+├── postcss.config.js
+│
+└── release/
 ```
 
 ---
 
-# Configuração importante
+# Configuração do Vite
 
-No `vite.config.js`:
+Arquivo:
+
+```text
+vite.config.js
+```
+
+Conteúdo:
 
 ```js
 import { defineConfig } from 'vite'
@@ -118,42 +188,300 @@ export default defineConfig({
 
 ---
 
-# Dependências principais
+# Configuração Electron
+
+Arquivo:
+
+```text
+electron.js
+```
+
+Exemplo básico:
+
+```js
+const { app, BrowserWindow } = require('electron')
+const path = require('path')
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1400,
+    height: 900,
+  })
+
+  win.loadFile('dist/index.html')
+}
+
+app.whenReady().then(createWindow)
+```
+
+---
+
+# Rodar Projeto React
 
 ```bash
-npm install react
-npm install pdfjs-dist
-npm install pdf-lib
-npm install jszip
+npm run dev
+```
+
+O sistema abrirá em:
+
+```text
+http://localhost:5173
+```
+
+---
+
+# Rodar Electron
+
+```bash
+npm run electron
+```
+
+---
+
+# Gerar Build React
+
+```bash
+npm run build
+```
+
+---
+
+# Gerar Instalador EXE
+
+```bash
+npm run dist
+```
+
+---
+
+# Local do Instalador
+
+Após gerar:
+
+```text
+release/
+```
+
+Exemplo:
+
+```text
+release/Gerenciador DANFE Setup.exe
+```
+
+---
+
+# Configuração do package.json
+
+Exemplo básico:
+
+```json
+{
+  "main": "electron.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron": "electron .",
+    "dist": "npm run build && electron-builder"
+  }
+}
+```
+
+---
+
+# OCR Inteligente
+
+O sistema utiliza:
+
+```text
+Tesseract OCR
+```
+
+para leitura automática de:
+
+- DANFEs digitais
+- PDFs escaneados
+- PDFs em imagem
+- Notas fiscais fotografadas
+
+---
+
+# Como Funciona a Leitura
+
+O sistema:
+
+1. Abre o PDF
+2. Extrai texto nativo
+3. Se não houver texto:
+   - converte página em imagem
+   - aplica OCR
+4. Localiza:
+   - chave de acesso
+   - número NF
+5. Renomeia automaticamente
+
+---
+
+# Formatos Reconhecidos
+
+## Chave de acesso
+
+Exemplo:
+
+```text
+3226 0421 9828 9100 0280 5500 1000 0040 4710 7800 0551
+```
+
+Convertido para:
+
+```text
+32260421982891000280550010000040471078000551
+```
+
+---
+
+## Número da NF
+
+Exemplo:
+
+```text
+Nº 000.004.047
+```
+
+Convertido para:
+
+```text
+4047
+```
+
+---
+
+# Funcionalidades Futuras
+
+- Drag and Drop
+- Multi-thread OCR
+- GPU OCR
+- Leitura XML
+- Exportar CSV
+- Banco de dados
+- Histórico
+- OCR acelerado
+- Modo lote empresarial
+
+---
+
+# Problemas Comuns
+
+---
+
+## Tela branca no Electron
+
+Execute:
+
+```bash
+npm run build
+npm run electron
+```
+
+Verifique:
+
+```js
+base: './'
+```
+
+no:
+
+```text
+vite.config.js
+```
+
+---
+
+## OCR não funciona
+
+Reinstale:
+
+```bash
 npm install tesseract.js
 ```
 
 ---
 
-# Dependências Electron
+## PDF não reconhece
 
-```bash
-npm install electron electron-builder --save-dev
+Verifique se:
+
+- PDF não está corrompido
+- PDF possui imagem legível
+- OCR está instalado
+
+---
+
+## Worker PDF.js erro 404
+
+Use:
+
+```js
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 ```
 
 ---
 
-# OCR
+# Melhorias de Performance
 
-O sistema utiliza OCR com Tesseract para leitura automática de:
+O sistema já possui:
 
-- DANFEs digitais
-- PDFs escaneados
-- Notas fiscais em imagem
+- OCR apenas quando necessário
+- Extração de texto nativa primeiro
+- Compressão ZIP otimizada
+- Processamento progressivo
+- Barra de progresso
+
+---
+
+# Build Produção
+
+Para gerar versão final:
+
+```bash
+npm run build
+npm run dist
+```
+
+---
+
+# Publicação
+
+Você pode publicar:
+
+- Instalador `.exe`
+- Portable `.exe`
+- ZIP portátil
+- GitHub Releases
+
+---
+
+# Segurança
+
+O sistema:
+
+- Não envia arquivos para internet
+- Processa tudo localmente
+- OCR totalmente offline
 
 ---
 
 # Autor
 
-Desenvolvido por Alan Leandro
+## Alan Leandro
+
+Sistema interno para automação de DANFEs e PDFs.
 
 ---
 
 # Licença
 
-Uso interno / privado.
+```text
+Uso privado/interno
+```
