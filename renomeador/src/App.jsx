@@ -10,15 +10,18 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 
 export default function App() {
   const [activeTab, setActiveTab] =
-    useState('rename')
+    useState('individual')
+
+  const [renameMode, setRenameMode] =
+    useState('xml')
+
+  const [splitMode, setSplitMode] =
+    useState('xml')
 
   const [selectedFiles, setSelectedFiles] =
     useState([])
 
-  const [renamedFiles, setRenamedFiles] =
-    useState([])
-
-  const [nfeFiles, setNfeFiles] =
+  const [processedFiles, setProcessedFiles] =
     useState([])
 
   const [splitPages, setSplitPages] =
@@ -36,15 +39,8 @@ export default function App() {
   const [splitProgress, setSplitProgress] =
     useState(0)
 
-  // SPLIT MODE
-  // key = CHAVE-NFE
-  // nfe = SOMENTE NFE
-
-  const [splitMode, setSplitMode] =
-    useState('key')
-
   // =========================================
-  // OCR
+  // EXTRAIR TEXTO PDF
   // =========================================
 
   const extractTextFromPdf = async (file) => {
@@ -73,18 +69,18 @@ export default function App() {
         const textContent =
           await page.getTextContent()
 
-        const pageText =
+        const nativeText =
           textContent.items
             .map((item) => item.str)
             .join(' ')
 
-        fullText += ' ' + pageText
+        fullText += ' ' + nativeText
 
-        // OCR SE NECESSARIO
-        if (pageText.length < 30) {
+        // OCR SOMENTE SE NECESSARIO
+        if (nativeText.length < 20) {
           const viewport =
             page.getViewport({
-              scale: 4,
+              scale: 3,
             })
 
           const canvas =
@@ -105,44 +101,6 @@ export default function App() {
             canvasContext: context,
             viewport,
           }).promise
-
-          const imageData =
-            context.getImageData(
-              0,
-              0,
-              canvas.width,
-              canvas.height
-            )
-
-          const data =
-            imageData.data
-
-          for (
-            let p = 0;
-            p < data.length;
-            p += 4
-          ) {
-            const avg =
-              (data[p] +
-                data[p + 1] +
-                data[p + 2]) /
-              3
-
-            const value =
-              avg > 160
-                ? 255
-                : 0
-
-            data[p] = value
-            data[p + 1] = value
-            data[p + 2] = value
-          }
-
-          context.putImageData(
-            imageData,
-            0,
-            0
-          )
 
           const image =
             canvas.toDataURL(
@@ -172,10 +130,10 @@ export default function App() {
   }
 
   // =========================================
-  // CHAVE + NFE
+  // XML + NFE
   // =========================================
 
-  const extractKeyName =
+  const extractXmlName =
     async (file) => {
       try {
         const text =
@@ -183,13 +141,15 @@ export default function App() {
             file
           )
 
+        console.log(text)
+
         const keyMatch =
           text.match(
             /(\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4})/
           )
 
         let accessKey =
-          'SEM_CHAVE'
+          'SEM_XML'
 
         if (keyMatch) {
           accessKey =
@@ -203,7 +163,7 @@ export default function App() {
       } catch (error) {
         console.error(error)
 
-        return 'SEM_CHAVE-NFE'
+        return 'SEM_XML-NFE'
       }
     }
 
@@ -219,13 +179,15 @@ export default function App() {
             file
           )
 
+        console.log(text)
+
         const nfMatch =
           text.match(
             /N[º°o]?\s*([0-9.]+)/i
           )
 
         let nfNumber =
-          'SEM_NF'
+          'ERRO'
 
         if (nfMatch) {
           nfNumber =
@@ -250,10 +212,10 @@ export default function App() {
     }
 
   // =========================================
-  // PROCESSAR CHAVE
+  // PROCESSAR INDIVIDUAL
   // =========================================
 
-  const processRename =
+  const processFiles =
     async () => {
       try {
         if (
@@ -278,10 +240,21 @@ export default function App() {
           const file =
             selectedFiles[i]
 
-          const newName =
-            await extractKeyName(
-              file
-            )
+          let newName = ''
+
+          if (
+            renameMode === 'xml'
+          ) {
+            newName =
+              await extractXmlName(
+                file
+              )
+          } else {
+            newName =
+              await extractOnlyNfe(
+                file
+              )
+          }
 
           processed.push({
             file,
@@ -298,67 +271,9 @@ export default function App() {
           setProgress(percent)
         }
 
-        setRenamedFiles(
+        setProcessedFiles(
           processed
         )
-
-        setProcessing(false)
-      } catch (error) {
-        console.error(error)
-        setProcessing(false)
-      }
-    }
-
-  // =========================================
-  // PROCESSAR NFE
-  // =========================================
-
-  const processOnlyNfe =
-    async () => {
-      try {
-        if (
-          !selectedFiles.length
-        ) {
-          alert(
-            'Selecione PDFs.'
-          )
-          return
-        }
-
-        setProcessing(true)
-        setProgress(0)
-
-        const processed = []
-
-        for (
-          let i = 0;
-          i < selectedFiles.length;
-          i++
-        ) {
-          const file =
-            selectedFiles[i]
-
-          const newName =
-            await extractOnlyNfe(
-              file
-            )
-
-          processed.push({
-            file,
-            newName,
-          })
-
-          const percent =
-            Math.round(
-              ((i + 1) /
-                selectedFiles.length) *
-                100
-            )
-
-          setProgress(percent)
-        }
-
-        setNfeFiles(processed)
 
         setProcessing(false)
       } catch (error) {
@@ -372,13 +287,10 @@ export default function App() {
   // =========================================
 
   const generateZip =
-    async (
-      files,
-      zipName
-    ) => {
+    async () => {
       const zip = new JSZip()
 
-      for (const item of files) {
+      for (const item of processedFiles) {
         const buffer =
           await item.file.arrayBuffer()
 
@@ -404,7 +316,9 @@ export default function App() {
         )
 
       link.href = url
-      link.download = zipName
+
+      link.download =
+        'danfes.zip'
 
       document.body.appendChild(
         link
@@ -416,6 +330,16 @@ export default function App() {
 
       URL.revokeObjectURL(url)
     }
+
+  // =========================================
+  // LIMPAR
+  // =========================================
+
+  const clearAll = () => {
+    setSelectedFiles([])
+    setProcessedFiles([])
+    setProgress(0)
+  }
 
   // =========================================
   // LOAD SPLIT
@@ -453,7 +377,7 @@ export default function App() {
     }
 
   // =========================================
-  // SPLIT ZIP
+  // SPLIT
   // =========================================
 
   const generateSplitZip =
@@ -461,7 +385,7 @@ export default function App() {
       try {
         if (!splitPages.length) {
           alert(
-            'Nenhuma página.'
+            'Nenhuma página encontrada.'
           )
           return
         }
@@ -523,10 +447,10 @@ export default function App() {
           let autoName = ''
 
           if (
-            splitMode === 'key'
+            splitMode === 'xml'
           ) {
             autoName =
-              await extractKeyName(
+              await extractXmlName(
                 splitFile
               )
           } else {
@@ -586,7 +510,6 @@ export default function App() {
         setSplitLoading(false)
       } catch (error) {
         console.error(error)
-
         setSplitLoading(false)
       }
     }
@@ -594,44 +517,30 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-100 p-8">
 
-      <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-7xl mx-auto">
+      <div className="bg-white shadow-2xl rounded-3xl p-8 max-w-7xl mx-auto">
 
         <h1 className="text-4xl font-bold mb-8">
           Gerenciador DANFE
         </h1>
 
-        <div className="flex gap-4 mb-8 flex-wrap">
+        {/* TABS */}
+
+        <div className="flex gap-4 mb-8">
 
           <button
             onClick={() =>
               setActiveTab(
-                'rename'
+                'individual'
               )
             }
             className={`px-6 py-3 rounded-2xl ${
               activeTab ===
-              'rename'
+              'individual'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200'
             }`}
           >
-            Chave + NFE
-          </button>
-
-          <button
-            onClick={() =>
-              setActiveTab(
-                'onlynfe'
-              )
-            }
-            className={`px-6 py-3 rounded-2xl ${
-              activeTab ===
-              'onlynfe'
-                ? 'bg-orange-600 text-white'
-                : 'bg-gray-200'
-            }`}
-          >
-            Apenas NFE
+            Individual
           </button>
 
           <button
@@ -652,14 +561,10 @@ export default function App() {
 
         </div>
 
-        {/* ===================== */}
-        {/* RENAME */}
-        {/* ===================== */}
+        {/* INDIVIDUAL */}
 
-        {(activeTab ===
-          'rename' ||
-          activeTab ===
-            'onlynfe') && (
+        {activeTab ===
+          'individual' && (
           <>
 
             <input
@@ -676,173 +581,153 @@ export default function App() {
               className="w-full border rounded-2xl p-4"
             />
 
-            {activeTab ===
-              'rename' && (
+            {/* CHECKBOX */}
+
+            <div className="mt-6 flex gap-8">
+
+              <label className="flex items-center gap-2">
+
+                <input
+                  type="radio"
+                  checked={
+                    renameMode ===
+                    'xml'
+                  }
+                  onChange={() =>
+                    setRenameMode(
+                      'xml'
+                    )
+                  }
+                />
+
+                XML + NFE
+              </label>
+
+              <label className="flex items-center gap-2">
+
+                <input
+                  type="radio"
+                  checked={
+                    renameMode ===
+                    'nfe'
+                  }
+                  onChange={() =>
+                    setRenameMode(
+                      'nfe'
+                    )
+                  }
+                />
+
+                Apenas NFE
+              </label>
+
+            </div>
+
+            {/* BOTOES */}
+
+            <div className="flex gap-4 mt-6">
+
               <button
                 onClick={
-                  processRename
+                  processFiles
                 }
-                className="mt-4 w-full bg-blue-600 text-white py-4 rounded-2xl"
+                className="flex-1 bg-blue-600 text-white py-4 rounded-2xl"
               >
                 Processar
               </button>
+
+              <button
+                onClick={clearAll}
+                className="flex-1 bg-red-600 text-white py-4 rounded-2xl"
+              >
+                Limpar
+              </button>
+
+            </div>
+
+            {/* PROGRESS */}
+
+            {processing && (
+              <div className="mt-6">
+
+                <div className="flex justify-between mb-2">
+                  <span>
+                    Processando
+                  </span>
+
+                  <span>
+                    {progress}%
+                  </span>
+                </div>
+
+                <div className="w-full h-5 bg-gray-200 rounded-full overflow-hidden">
+
+                  <div
+                    className="h-5 bg-green-600"
+                    style={{
+                      width: `${progress}%`,
+                    }}
+                  />
+
+                </div>
+
+              </div>
             )}
 
-            {activeTab ===
-              'onlynfe' && (
+            {/* RESULTADOS */}
+
+            <div className="space-y-4 mt-8">
+
+              {processedFiles.map(
+                (
+                  item,
+                  index
+                ) => (
+                  <div
+                    key={index}
+                    className="border rounded-2xl p-4"
+                  >
+                    <div>
+                      {
+                        item.file
+                          .name
+                      }
+                    </div>
+
+                    <div className="text-blue-700 break-all">
+                      {
+                        item.newName
+                      }
+                      .pdf
+                    </div>
+                  </div>
+                )
+              )}
+
+            </div>
+
+            {/* ZIP */}
+
+            {processedFiles.length >
+              0 && (
               <button
                 onClick={
-                  processOnlyNfe
+                  generateZip
                 }
-                className="mt-4 w-full bg-orange-600 text-white py-4 rounded-2xl"
+                className="mt-6 w-full bg-green-600 text-white py-4 rounded-2xl"
               >
-                Processar NFE
+                Gerar ZIP
               </button>
             )}
 
           </>
         )}
 
-        {/* ===================== */}
-        {/* PROGRESS */}
-        {/* ===================== */}
-
-        {processing && (
-          <div className="mt-6">
-
-            <div className="flex justify-between mb-2">
-              <span>
-                Processando
-              </span>
-
-              <span>
-                {progress}%
-              </span>
-            </div>
-
-            <div className="w-full h-5 bg-gray-200 rounded-full overflow-hidden">
-
-              <div
-                className="h-5 bg-green-600"
-                style={{
-                  width: `${progress}%`,
-                }}
-              />
-
-            </div>
-
-          </div>
-        )}
-
-        {/* ===================== */}
-        {/* RESULTS */}
-        {/* ===================== */}
-
-        <div className="space-y-4 mt-8">
-
-          {activeTab ===
-            'rename' &&
-            renamedFiles.map(
-              (
-                item,
-                index
-              ) => (
-                <div
-                  key={index}
-                  className="border rounded-2xl p-4"
-                >
-                  <div>
-                    {
-                      item.file
-                        .name
-                    }
-                  </div>
-
-                  <div className="text-blue-700 break-all">
-                    {
-                      item.newName
-                    }
-                    .pdf
-                  </div>
-                </div>
-              )
-            )}
-
-          {activeTab ===
-            'onlynfe' &&
-            nfeFiles.map(
-              (
-                item,
-                index
-              ) => (
-                <div
-                  key={index}
-                  className="border rounded-2xl p-4"
-                >
-                  <div>
-                    {
-                      item.file
-                        .name
-                    }
-                  </div>
-
-                  <div className="text-orange-700 break-all">
-                    {
-                      item.newName
-                    }
-                    .pdf
-                  </div>
-                </div>
-              )
-            )}
-
-        </div>
-
-        {/* ===================== */}
-        {/* ZIP */}
-        {/* ===================== */}
-
-        {activeTab ===
-          'rename' &&
-          renamedFiles.length >
-            0 && (
-            <button
-              onClick={() =>
-                generateZip(
-                  renamedFiles,
-                  'danfes.zip'
-                )
-              }
-              className="mt-6 w-full bg-green-600 text-white py-4 rounded-2xl"
-            >
-              Gerar ZIP
-            </button>
-          )}
-
-        {activeTab ===
-          'onlynfe' &&
-          nfeFiles.length >
-            0 && (
-            <button
-              onClick={() =>
-                generateZip(
-                  nfeFiles,
-                  'nfe.zip'
-                )
-              }
-              className="mt-6 w-full bg-green-600 text-white py-4 rounded-2xl"
-            >
-              Gerar ZIP NFE
-            </button>
-          )}
-
-        {/* ===================== */}
         {/* SPLIT */}
-        {/* ===================== */}
 
         {activeTab ===
           'split' && (
-          <div className="mt-10 border-t pt-8">
+          <div>
 
             <input
               type="file"
@@ -866,16 +751,16 @@ export default function App() {
                   type="radio"
                   checked={
                     splitMode ===
-                    'key'
+                    'xml'
                   }
                   onChange={() =>
                     setSplitMode(
-                      'key'
+                      'xml'
                     )
                   }
                 />
 
-                PDF + Chave
+                PDF + XML
               </label>
 
               <label className="flex items-center gap-2">
